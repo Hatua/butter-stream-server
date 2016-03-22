@@ -1,19 +1,75 @@
-var http = require('http');
 var util = require('util');
-var mime = require('mime');
-var Streamer = require('popcorn-streamer');
+var debug = require('debug')('butter-streamer');
 var StreamerServer = {};
-var rangeParser = require('range-parser');
 var mime = require('mime');
-var pump = require('pump');
-var url = require('url');
 var fs = require('fs');
-var _ = require('underscore');
+var _ = require('lodash');
 var EventEmitter = require("events").EventEmitter;
 var path = require('path');
+var loadPackageJSON = require('load-package-json');
+var URI = require('urijs');
+var createWebServer = require('./server');
+
+function loadFromNPM(name) {
+    return require(name);
+}
+
+function loadFromPackageJSON(regex) {
+    var npm = loadPackageJSON();
+
+    var packages = Object.keys(npm.dependencies).filter(function (p) {
+        return p.match(regex);
+    });
+
+    return _.orderBy(packages, 'priority').map(function (name) {
+        debug('loading npm', regex, name);
+        return loadFromNPM(name);
+    });
+}
+
+function loadStreamersFromPackageJSON () {
+    return loadFromPackageJSON(/butter-streamer-/);
+}
+
+function loadStreamers(streamerNames) {
+    return streamerNames.map(function (name) {
+        name = name.match(/^butter-streamer-/)?name:'butter-streamer-' + name;
+        return loadFromNPM(name);
+    })
+}
+
+function spawnStreamer(o, url, args) {
+    debug ('returning', o.name, url, args)
+    return new o(url, args);
+}
+
+function pickStreamer(streamerNames, url, args) {
+    var streamers = loadStreamers(streamerNames)
+        .concat(loadStreamersFromPackageJSON());
+    var uri = URI(url);
+
+    for (var i = 0; i< streamers.length; i++) {
+        var s = streamers[i]
+        var c = s.prototype.config;
+
+        if (c.type && c.type === args.type) {
+            debug ('found streamer of type', s.type)
+            return spawnStreamer(s, url, args);
+        }
+
+        for (var k in c) {
+            if (uri[k] && uri[k]().match(c[k])) {
+                debug ('streamer matched', k, uri[k](), c[k])
+                return spawnStreamer(s, url, args);
+            }
+        }
+    }
+
+    debug ('returning nothing')
+    return new Error("couldn't locate streamer")
+}
 
 StreamerServer = function(url, args) {
-
     var self = this;
     var ready = false;
     var stoping = false;
@@ -29,22 +85,25 @@ StreamerServer = function(url, args) {
 
     });
 
+
     this.output = path.join(args.writeDir , args.index);
 
     // Initialize streaming engine
-    this.engine = Streamer(url, args)
+    //    this.engine = Streamer(url, args)
+    this.engine = pickStreamer(['torrent', 'http'], url, args)
         .on('ready', function(file) {
 
             // we have our temp readStream so we can generate our webserver
+            debug('spawning web server');
             self.webServer = createWebServer(file, args.hostname, args.port);
 
         })
         .on('progress', function(progress) {
-
             // if our buffer is met, we can initialize our web server
             if (progress.downloaded >= args.buffer && !ready) {
 
                 // start web server
+                debug('starting web server');
                 self.webServer.listen(args.port, args.hostname);
 
                 // emit the streamUrl
@@ -98,72 +157,6 @@ StreamerServer = function(url, args) {
         }, 1000);
 
     };
-}
-createWebServer = function(file, hostname, port) {
-    var server = http.createServer();
-    var getType = mime.lookup.bind(mime);
-
-    server.on('request', function(request, response) {
-        var u = url.parse(request.url);
-        var host = request.headers.host || 'localhost';
-
-        if (request.method === 'OPTIONS' && request.headers['access-control-request-headers']) {
-			response.setHeader('Access-Control-Allow-Origin', request.headers.origin);
-			response.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-			response.setHeader(
-					'Access-Control-Allow-Headers',
-					request.headers['access-control-request-headers']);
-			response.setHeader('Access-Control-Max-Age', '1728000');
-
-			response.end();
-			return;
-		}
-
-        if (request.headers.origin) {
-            response.setHeader('Access-Control-Allow-Origin', request.headers.origin);
-        }
-
-        // map to our file
-        if (u.pathname === '/') {
-            u.pathname = '/'+file.name;
-        }
-
-        // Prevent crash
-		if (u.pathname === '/favicon.ico') {
-			response.statusCode = 404;
-			response.end();
-			return;
-		}
-
-        var range = request.headers.range;
-		range = range && rangeParser(file.length, range)[0];
-
-		response.setHeader('Accept-Ranges', 'bytes');
-		response.setHeader('Content-Type', getType(file.name));
-
-        if (!range) {
-			response.setHeader('Content-Length', file.length);
-			if (request.method === 'HEAD') return response.end();
-			pump(file.createReadStream(), response);
-			return;
-		}
-
-        response.statusCode = 206;
-		response.setHeader('Content-Length', range.end - range.start + 1);
-		response.setHeader('Content-Range', 'bytes '+range.start+'-'+range.end+'/'+file.length);
-
-        if (request.method === 'HEAD') {
-            return response.end();
-        }
-
-        pump(file.createReadStream(range), response);
-    });
-
-    server.on('connection', function(socket) {
-        socket.setTimeout(36000000);
-    });
-
-    return server;
 }
 
 util.inherits(StreamerServer, EventEmitter);

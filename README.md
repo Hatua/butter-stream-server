@@ -1,4 +1,4 @@
-popcorn-streamer
+butter-streamer
 ================
 
-The streaming library used by Popcorn Time to stream different media sources
+The streaming library used by Butter Project to stream different media sources
