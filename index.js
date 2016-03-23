@@ -87,7 +87,7 @@ StreamerServer = function(url, args) {
         progressInterval: 200,
         buffer: 10*1024*1024,
         port: parseInt(Math.random() * (8000 - 6000) + 6000), // between 6000 & 8000
-
+        timeout: 1000
     });
 
 
@@ -159,7 +159,7 @@ StreamerServer = function(url, args) {
 
             self.emit('close', true);
 
-        }, 1000);
+        }, args.timeout);
 
     };
 }
