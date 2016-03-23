@@ -1,7 +1,6 @@
 var util = require('util');
 var debug = require('debug')('butter-streamer');
 var StreamerServer = {};
-var mime = require('mime');
 var fs = require('fs');
 var _ = require('lodash');
 var EventEmitter = require("events").EventEmitter;
