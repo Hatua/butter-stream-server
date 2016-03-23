@@ -20,7 +20,7 @@ function loadFromPackageJSON(regex) {
         return p.match(regex);
     });
 
-    return _.orderBy(packages, 'priority').map(function (name) {
+    return packages.map(function (name) {
         debug('loading npm', regex, name);
         return loadFromNPM(name);
     });
@@ -43,9 +43,12 @@ function spawnStreamer(o, url, args) {
 }
 
 function pickStreamer(streamerNames, url, args) {
-    var streamers = loadStreamers(streamerNames)
-        .concat(loadStreamersFromPackageJSON());
+    var streamers =
+        _.orderBy(loadStreamers(streamerNames)
+                  .concat(loadStreamersFromPackageJSON()), 'prototype.config.priority')
+
     var uri = URI(url);
+    var fails = [];
 
     for (var i = 0; i< streamers.length; i++) {
         var s = streamers[i]
@@ -59,9 +62,12 @@ function pickStreamer(streamerNames, url, args) {
         for (var k in c) {
             if (uri[k] && uri[k]().match(c[k])) {
                 debug ('streamer matched', k, uri[k](), c[k])
+                debug ('tried', fails)
                 return spawnStreamer(s, url, args);
             }
         }
+
+        fails.push(c.type);
     }
 
     debug ('returning nothing')
