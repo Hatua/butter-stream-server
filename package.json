@@ -15,6 +15,7 @@
   },
   "homepage": "h",
   "dependencies": {
+    "debug": "^2.2.0",
     "fs": "0.0.2",
     "http": "0.0.0",
     "load-package-json": "0.0.1",
