@@ -42,9 +42,9 @@ function spawnStreamer(o, url, args) {
     return new o(url, args);
 }
 
-function pickStreamer(streamerNames, url, args) {
+function pickStreamer(url, args) {
     var streamers =
-        _.orderBy(loadStreamers(streamerNames)
+        _.orderBy(loadStreamers(args.streamers)
                   .concat(loadStreamersFromPackageJSON()), 'prototype.config.priority')
 
     var uri = URI(url);
@@ -81,6 +81,7 @@ StreamerServer = function(url, args) {
 
     // populate with default args
     args = _.defaults(args, {
+        streamers: ['torrent', 'http', 'youtube'],
         hostname: 'localhost',
         index: 'file.mp4',
         writeDir: '',
@@ -95,7 +96,7 @@ StreamerServer = function(url, args) {
 
     // Initialize streaming engine
     //    this.engine = Streamer(url, args)
-    this.engine = pickStreamer(['torrent', 'http'], url, args)
+    this.engine = pickStreamer(url, args)
         .on('ready', function(file) {
 
             // we have our temp readStream so we can generate our webserver
