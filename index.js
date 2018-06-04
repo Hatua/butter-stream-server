@@ -1,5 +1,5 @@
 var util = require('util')
-var debug = require('debug')('butter-streamer')
+var debug = require('debug')('butter-stream-server')
 var StreamerServer = {}
 var fs = require('fs')
 var _ = require('lodash')

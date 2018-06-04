@@ -1,6 +1,6 @@
 const http = require('http')
 const assert = require('assert')
-const Streamer = require('../../')
+const StreamServer = require('../../')
 const fs = require('fs')
 
 module.exports = function (
@@ -10,7 +10,7 @@ module.exports = function (
   tmpFile = 'testFile.mp4'
 ) {
   return describe(`${name} - Streaming Server`, function () {
-    let stream = new Streamer(url, {
+    let server = new StreamServer(url, {
       progressInterval: 50,
       buffer: 1000,
       port: port,
@@ -21,7 +21,7 @@ module.exports = function (
     it('should return 200', function (done) {
       this.timeout(100000)
 
-      stream.on('ready', data => (
+      server.on('ready', data => (
         http.get(data.streamUrl, function (res) {
           assert.equal(200, res.statusCode)
           done()
@@ -31,7 +31,7 @@ module.exports = function (
     it('should return progress', done => {
       this.timeout(100000)
       let progressed = false
-      stream.on('progress', function (data) {
+      server.on('progress', function (data) {
         if (!progressed) {
           progressed = true
           assert(true)
@@ -48,14 +48,14 @@ module.exports = function (
     })
 
     it('we can close the process', done => {
-      stream.close()
+      server.close()
       done()
     })
 
     it('we can re-bind on the same port within 3 second', done => {
       this.timeout(100000)
       setTimeout(() => {
-        stream = new Streamer(url, {
+        server = new StreamServer(url, {
           progressInterval: 200,
           buffer: 1000,
           port: port,
@@ -63,7 +63,7 @@ module.exports = function (
           index: tmpFile
         })
 
-        stream.on('ready', function (data) {
+        server.on('ready', function (data) {
           http.get(data.streamUrl, function (res) {
             assert.equal(200, res.statusCode)
             done()
@@ -74,7 +74,7 @@ module.exports = function (
 
     it('we finalize the sequence', done => {
       // close the stream
-      stream.close()
+      server.close()
 
       // delete tmpFile
       fs.unlinkSync(tmpFile)

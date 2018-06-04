@@ -1,11 +1,11 @@
 {
-  "name": "butter-streamer-server",
+  "name": "butter-stream-server",
   "version": "0.1.0",
   "description": "The streaming server used by Butter Project",
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/butterproject/butter-streamer-server.git"
+    "url": "https://github.com/butterproject/butter-stream-server.git"
   },
   "author": "Butter Project",
   "license": "GPL-3",
