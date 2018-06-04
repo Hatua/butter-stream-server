@@ -18,22 +18,19 @@
   "dependencies": {
     "butter-stream-selector": "butterstreamers/butter-stream-selector",
     "debug": "^3.1.0",
-    "fs": "0.0.2",
     "http": "0.0.0",
     "load-package-json": "0.0.1",
-    "lodash": "^4.6.1",
     "mime": "^2.3.1",
     "pump": "^3.0.0",
     "range-parser": "^1.0.2",
-    "urijs": "^1.17.1",
-    "url": "^0.11.0",
-    "util": "^0.10.3"
+    "url": "^0.11.0"
   },
   "devDependencies": {
     "butter-streamer-http": "butterstreamers/butter-streamer-http",
+    "butter-streamer-torrent": "butterstreamers/butter-streamer-torrent#webtorrent",
     "butter-streamer-youtube": "butterstreamers/butter-streamer-youtube",
-    "butter-streamer-torrent": "butterstreamers/butter-streamer-torrent",
     "expect.js": "^0.3.1",
+    "longjohn": "^0.2.12",
     "mocha": "^5.2.0",
     "standard": "^11.0.1"
   }

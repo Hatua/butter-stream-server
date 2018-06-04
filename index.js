@@ -1,66 +1,82 @@
-var util = require('util')
-var debug = require('debug')('butter-stream-server')
-var StreamerServer = {}
-var fs = require('fs')
-var _ = require('lodash')
-var EventEmitter = require('events').EventEmitter
-var path = require('path')
-var createWebServer = require('./server')
-var pickStreamer = require('butter-stream-selector')
+const fs = require('fs')
+const EventEmitter = require('events').EventEmitter
+const path = require('path')
 
-StreamerServer = function (url, args) {
-  var ready = false
-  var stoping = false
+const pickStreamer = require('butter-stream-selector')
 
-  // populate with default args
-  args = _.defaults(args, {
-    hostname: 'localhost',
-    index: 'file.mp4',
-    writeDir: '',
-    progressInterval: 200,
-    buffer: 10 * 1024 * 1024,
-    port: parseInt(Math.random() * (8000 - 6000) + 6000), // between 6000 & 8000
-    timeout: 1000
-  })
+const createWebServer = require('./server')
 
-  this.output = path.join(args.writeDir, args.index)
+const debug = require('debug')('butter-stream-server')
 
-  // Initialize streaming engine
-  //    this.engine = Streamer(url, args)
-  this.engine = pickStreamer(url, args)
-    .on('ready', file => {
-      // we have our temp readStream so we can generate our webserver
-      debug('spawning web server')
-      this.webServer = createWebServer(file, this.output, args.hostname, args.port)
-    })
-    .on('progress', progress => {
-      // if our buffer is met, we can initialize our web server
-      if (progress.downloaded >= args.buffer && !ready) {
-        // start web server
-        debug('starting web server')
-        this.webServer.listen(args.port, args.hostname)
+const defaultArgs = {
+  hostname: 'localhost',
+  index: 'file.mp4',
+  writeDir: '',
+  progressInterval: 200,
+  buffer: 10 * 1024 * 1024,
+  port: parseInt(Math.random() * (8000 - 6000) + 6000), // between 6000 & 8000
+  timeout: 1000
+}
 
-        // emit the streamUrl
-        this.emit('ready', {
-          streamUrl: 'http://' + args.hostname + ':' + args.port
+class StreamServer extends EventEmitter {
+  constructor (url, args) {
+    super()
+
+    let ready = false
+    let stoping = false
+
+    // populate with default args
+    args = Object.assign({}, defaultArgs, args)
+
+    this.output = path.join(args.writeDir, args.index)
+    this.outputStream = fs.createWriteStream(this.output)
+
+    // Initialize streaming engine
+    this.engine = pickStreamer(url, args)
+      .on('ready', file => {
+        // we have our temp readStream so we can generate our webserver
+        debug('spawning web server')
+        this.webServer = createWebServer(file, this.output, args.hostname, args.port)
+
+        this.webServer.on('range', range => {
+          // XXX(xaiki): this is buggy, we should maintain a map of the holes in the file
+          if (this.engine.stats.downloaded > range.start) {
+            debug('got that data, no seek')
+            return true
+          }
+
+          debug('quick ! seek and get the data')
+          this.outputStream.destroy()
+          this.outputStream = fs.createWriteStream(this.output, {
+            start: range.start
+          })
+          this.engine.pipe(this.outputStream)
+          return this.engine.seek(range)
         })
+      })
+      .on('progress', progress => {
+        // if our buffer is met, we can initialize our web server
+        if (progress.downloaded >= args.buffer && !ready) {
+          // start web server
+          debug('starting web server')
+          this.webServer.listen(args.port, args.hostname)
 
-        // ok so we are ready :)
-        // will prevent webserver to start again
-        ready = true
-      }
+          // emit the streamUrl
+          this.emit('ready', {
+            streamUrl: 'http://' + args.hostname + ':' + args.port
+          })
 
-      this.emit('progress', progress)
-    })
-    .pipe(fs.createWriteStream(this.output))
+          // ok so we are ready :)
+          // will prevent webserver to start again
+          ready = true
+        }
 
-  this.close = () => {
-    // we use a 1sec delay
-    // to make sure our webserver is
-    // initialized correctly
+        this.emit('progress', progress)
+      })
+      .pipe(this.outputStream)
 
-    setTimeout(() => {
-      if (this.webServer) {
+    this.close = () => {
+      const closeWebServer = () => {
         try {
           this.webServer.close()
         } catch (e) {
@@ -69,9 +85,9 @@ StreamerServer = function (url, args) {
             error: e
           })
         }
-      };
+      }
 
-      if (this.engine) {
+      const closeEngine = () => {
         try {
           this.engine.close()
           this.engine.destroy()
@@ -81,12 +97,26 @@ StreamerServer = function (url, args) {
             error: e
           })
         }
-      };
+      }
 
-      this.emit('close', true)
-    }, args.timeout)
+      const doClose = () => {
+        if (this.webServer) {
+          closeWebServer()
+        }
+
+        if (this.engine) {
+          closeEngine()
+        }
+
+        this.emit('close', true)
+      }
+
+      // we use a 1sec delay
+      // to make sure our webserver is
+      // initialized correctly
+      setTimeout(doClose, args.timeout)
+    }
   }
 }
 
-util.inherits(StreamerServer, EventEmitter)
-module.exports = StreamerServer
+module.exports = StreamServer
