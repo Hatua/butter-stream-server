@@ -203,7 +203,7 @@ function Server (torrent, opts) {
         res.setHeader('Content-Length', range.end - range.start + 1)
       } else {
         range = null
-        res.setHeader('Content-Length', file.length)
+        file.length && res.setHeader('Content-Length', file.length)
       }
 
       if (req.method === 'HEAD') {
