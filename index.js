@@ -4,7 +4,7 @@ const path = require('path')
 
 const pickStreamer = require('butter-stream-selector')
 
-const createWebServer = require('./server')
+const Server = require('./server')
 
 const debug = require('debug')('butter-stream-server')
 
@@ -23,7 +23,6 @@ class StreamServer extends EventEmitter {
     super()
 
     let ready = false
-    let stoping = false
 
     // populate with default args
     args = Object.assign({}, defaultArgs, args)
@@ -33,25 +32,17 @@ class StreamServer extends EventEmitter {
 
     // Initialize streaming engine
     this.engine = pickStreamer(url, args)
-      .on('ready', file => {
+    this.webServer = new Server(this.engine)
+
+    this.engine
+      .on('ready', files => {
         // we have our temp readStream so we can generate our webserver
         debug('spawning web server')
-        this.webServer = createWebServer(file, this.output, args.hostname, args.port)
-
-        this.webServer.on('range', range => {
-          // XXX(xaiki): this is buggy, we should maintain a map of the holes in the file
-          if (this.engine.stats.downloaded > range.start) {
-            debug('got that data, no seek')
-            return true
-          }
-
-          debug('quick ! seek and get the data')
-          this.outputStream.destroy()
-          this.outputStream = fs.createWriteStream(this.output, {
-            start: range.start
-          })
-          this.engine.pipe(this.outputStream)
-          return this.engine.seek(range)
+        this.webServer.listen({
+          port: args.port,
+          hostname: args.hostname
+        }, () => {
+          debug('server created', this.webServer.address())
         })
       })
       .on('progress', progress => {
@@ -59,7 +50,6 @@ class StreamServer extends EventEmitter {
         if (progress.downloaded >= args.buffer && !ready) {
           // start web server
           debug('starting web server')
-          this.webServer.listen(args.port, args.hostname)
 
           // emit the streamUrl
           this.emit('ready', {
@@ -73,7 +63,6 @@ class StreamServer extends EventEmitter {
 
         this.emit('progress', progress)
       })
-      .pipe(this.outputStream)
 
     this.close = () => {
       const closeWebServer = () => {
