@@ -63,7 +63,7 @@ class StreamServer extends EventEmitter {
     this.close = () => {
       const closeWebServer = () => {
         try {
-          this.webServer.close()
+          this.webServer.destroy()
         } catch (e) {
           this.emit('error', {
             context: 'closeWebServer',
@@ -74,7 +74,6 @@ class StreamServer extends EventEmitter {
 
       const closeEngine = () => {
         try {
-          this.engine.close()
           this.engine.destroy()
         } catch (e) {
           this.emit('error', {
