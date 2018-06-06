@@ -11,6 +11,7 @@ function Server (torrent, opts) {
   var server = http.createServer()
   if (!opts) opts = {}
   if (!opts.origin) opts.origin = '*' // allow all origins by default
+  if (!opts.vendor) opts.vendor = 'WebTorrent' // we took this code from WebTorrent
 
   var sockets = []
   var pendingReady = []
@@ -151,7 +152,7 @@ function Server (torrent, opts) {
       }).join('<br>')
 
       var html = getPageHTML(
-        torrent.name + ' - WebTorrent',
+        torrent.name + ' - ' + opts.vendor,
         '<h1>' + torrent.name + '</h1><ol>' + listHtml + '</ol>'
       )
       res.end(html)
