@@ -42,23 +42,19 @@ class StreamServer extends EventEmitter {
           port: args.port,
           hostname: args.hostname
         }, () => {
-          debug('server created', this.webServer.address())
+          debug('server ready', this.webServer.address())
+
+          // emit the streamUrl
+          this.emit('ready', {
+            streamUrl: 'http://' + args.hostname + ':' + args.port
+          })
         })
       })
       .on('progress', progress => {
         // if our buffer is met, we can initialize our web server
         if (progress.downloaded >= args.buffer && !ready) {
           // start web server
-          debug('starting web server')
-
-          // emit the streamUrl
-          this.emit('ready', {
-            streamUrl: 'http://' + args.hostname + ':' + args.port
-          })
-
-          // ok so we are ready :)
-          // will prevent webserver to start again
-          ready = true
+          debug('you can start playing')
         }
 
         this.emit('progress', progress)
