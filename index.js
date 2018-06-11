@@ -10,7 +10,6 @@ const debug = require('debug')('butter-stream-server')
 
 const defaultArgs = {
   hostname: 'localhost',
-  index: 'file.mp4',
   writeDir: '',
   progressInterval: 200,
   buffer: 10 * 1024 * 1024,
@@ -26,9 +25,6 @@ class StreamServer extends EventEmitter {
 
     // populate with default args
     args = Object.assign({}, defaultArgs, args)
-
-    this.output = path.join(args.writeDir, args.index)
-    this.outputStream = fs.createWriteStream(this.output)
 
     // Initialize streaming engine
     this.engine = pickStreamer(url, args)
