@@ -47,9 +47,7 @@ class StreamServer extends EventEmitter {
         })
       })
       .on('progress', progress => {
-        // if our buffer is met, we can initialize our web server
         if (progress.downloaded >= args.buffer && !ready) {
-          // start web server
           debug('you can start playing')
         }
 
